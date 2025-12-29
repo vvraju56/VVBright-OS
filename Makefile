@@ -1,55 +1,32 @@
-CC = gcc
-AS = nasm
-LD = ld
-
-CFLAGS = -m32 -ffreestanding -fno-stack-protector -fno-pic -O2
-ASFLAGS = -f elf32
-LDFLAGS = -m elf_i386 -nostdlib -T linker.ld
+ARCH=x86_64
+CC=x86_64-elf-gcc
+LD=x86_64-elf-ld
+CFLAGS=-ffreestanding -O2 -Wall -Wextra -Ikernel/include
+LDFLAGS=-T kernel/linker.ld -nostdlib
 
 KERNEL_DIR = kernel
-BUILD_DIR = build
+KERNEL_VIDEO_DIR = $(KERNEL_DIR)/video
+KERNEL_INCLUDE_DIR = $(KERNEL_DIR)/include
 
-KERNEL_OBJS = $(BUILD_DIR)/boot.o $(BUILD_DIR)/interrupts.o $(BUILD_DIR)/kernel.o $(BUILD_DIR)/terminal.o $(BUILD_DIR)/memory.o $(BUILD_DIR)/keyboard.o
+KERNEL_C_SRCS = \
+	$(KERNEL_DIR)/kernel.c \
+	$(KERNEL_VIDEO_DIR)/framebuffer.c \
+	$(KERNEL_VIDEO_DIR)/draw.c
 
-all: $(BUILD_DIR)/kernel.bin
+KERNEL_OBJS = $(patsubst %.c, %.o, $(KERNEL_C_SRCS))
 
-$(BUILD_DIR):
-	mkdir -p $(BUILD_DIR)
+KERNEL_BIN = iso/boot/vmlinuz
 
-$(BUILD_DIR)/boot.o: $(KERNEL_DIR)/boot.s | $(BUILD_DIR)
-	$(AS) $(ASFLAGS) $< -o $@
+all: $(KERNEL_BIN)
 
-$(BUILD_DIR)/interrupts.o: $(KERNEL_DIR)/interrupts.s | $(BUILD_DIR)
-	$(AS) $(ASFLAGS) $< -o $@
-
-$(BUILD_DIR)/kernel.o: $(KERNEL_DIR)/kernel.c | $(BUILD_DIR)
+%.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(BUILD_DIR)/terminal.o: $(KERNEL_DIR)/terminal.c | $(BUILD_DIR)
-	$(CC) $(CFLAGS) -c $< -o $@
+$(KERNEL_BIN): $(KERNEL_OBJS) $(KERNEL_DIR)/linker.ld
+	$(LD) $(LDFLAGS) $(KERNEL_OBJS) -o $(KERNEL_BIN)
 
-$(BUILD_DIR)/memory.o: $(KERNEL_DIR)/memory.c | $(BUILD_DIR)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD_DIR)/keyboard.o: $(KERNEL_DIR)/keyboard.c | $(BUILD_DIR)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD_DIR)/kernel.bin: $(KERNEL_OBJS) linker.ld
-	$(LD) $(LDFLAGS) -o $@ $(KERNEL_OBJS)
-
-iso: $(BUILD_DIR)/kernel.bin
-	mkdir -p $(BUILD_DIR)/isofiles/boot/grub
-	cp $(BUILD_DIR)/kernel.bin $(BUILD_DIR)/isofiles/boot/
-	cp bootloader/grub.cfg $(BUILD_DIR)/isofiles/boot/grub/
-	grub-mkrescue -o $(BUILD_DIR)/laptopos.iso $(BUILD_DIR)/isofiles
-
-qemu: $(BUILD_DIR)/kernel.bin
-	qemu-system-i386 -kernel $(BUILD_DIR)/kernel.bin
-
-qemu-iso: iso
-	qemu-system-i386 -cdrom $(BUILD_DIR)/laptopos.iso
+iso: all
+	grub-mkrescue -o vvbright.iso iso/
 
 clean:
-	rm -rf $(BUILD_DIR)
-
-.PHONY: all iso qemu qemu-iso clean
+	rm -f $(KERNEL_OBJS) $(KERNEL_BIN) vvbright.iso

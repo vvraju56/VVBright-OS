@@ -1,53 +1,32 @@
-#include "kernel.h"
+#include <stdint.h>
+#include "include/framebuffer.h"
+#include "include/draw.h"
 
-void panic(const char* message) {
-    terminal_setcolor(VGA_COLOR_LIGHT_RED);
-    terminal_writestring("PANIC: ");
-    terminal_writestring(message);
-    terminal_writestring("\nSystem halted.");
-    
-    disable_interrupts();
-    while (1) {
-        __asm__ volatile("hlt");
+// Dark Theme Colors
+#define DARK_BG   0x202020
+#define PANEL_BG  0x2A2A2A
+#define ACCENT    0xFF79EE
+
+static volatile uint16_t* vga = (uint16_t*)0xB8000;
+static int pos = 0;
+
+static void print(const char* s) {
+    while (*s) {
+        vga[pos++] = (uint16_t)(*s++) | 0x0F00;
     }
 }
 
-void kmain(void) {
-    // Initialize terminal
-    terminal_initialize();
-    
-    // Display welcome message
-    terminal_setcolor(VGA_COLOR_LIGHT_GREEN);
-    terminal_writestring("LaptopOS v0.2\n");
-    
-    terminal_setcolor(VGA_COLOR_LIGHT_GREY);
-    terminal_writestring("From-scratch laptop operating system\n");
-    terminal_writestring("Target: x86_64 laptops\n");
-    terminal_writestring("Architecture: Monolithic kernel\n\n");
-    
-    // Initialize core systems
-    terminal_setcolor(VGA_COLOR_LIGHT_CYAN);
-    terminal_writestring("Phase 2: Memory + Keyboard\n\n");
-    
-    // Initialize memory management
-    memory_init();
-    
-    // Initialize interrupt system
-    interrupts_init();
-    
-    // Initialize keyboard
-    keyboard_init();
-    
-    // Enable interrupts
-    enable_interrupts();
-    
-    terminal_setcolor(VGA_COLOR_LIGHT_GREEN);
-    terminal_writestring("\nAll systems ready!\n");
-    terminal_writestring("Type on keyboard to test input:\n");
-    terminal_setcolor(VGA_COLOR_WHITE);
-    
-    // Main kernel loop
-    while (1) {
-        __asm__ volatile("hlt");
-    }
+void kernel_main(void) {
+    // background
+    draw_rect(0, 0, fb_width, fb_height, DARK_BG);
+
+    // taskbar
+    draw_rect(0, fb_height - 40, fb_width, 40, PANEL_BG);
+
+    // start button
+    draw_rect(10, fb_height - 35, 80, 30, ACCENT);
+
+    while (1)
+        __asm__ volatile ("hlt");
 }
+
