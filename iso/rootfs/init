@@ -1,0 +1,4 @@
+#!/bin/sh
+echo "VVBright OS"
+echo "Built by VV"
+/bin/sh
